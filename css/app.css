@@ -124,15 +124,3 @@ main{flex:1;padding:16px 16px 84px}
 #toast{position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#2b1531e6;color:#fff;font-size:13px;border-radius:999px;padding:9px 20px;z-index:60;animation:fade .2s;max-width:86%;text-align:center}
 
 @media (max-width:520px){body{background:var(--background)}.app-shell{box-shadow:none}}
-
-/* ── V0.2 子页面顶栏与返回机制 ── */
-.sub-top{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(247,244,249,.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:10px 14px;margin:0 -16px 14px}
-.sub-top h1{font-size:17px;letter-spacing:1px;text-align:center;flex:1}
-.icon-btn{width:36px;height:36px;border-radius:11px;background:#fff;border:1px solid var(--border);display:grid;place-items:center;color:var(--foreground);flex:none}
-.icon-btn:active{background:var(--muted)}
-.app-shell.submode main{padding-bottom:28px}
-.tab span{font-size:11px}
-.me-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.me-tile{display:flex;flex-direction:column;align-items:flex-start;gap:5px;padding:14px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);text-align:left}
-.me-tile b{font-size:14px}
-.me-tile .sub{font-size:11px}
