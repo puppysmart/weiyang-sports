@@ -34,12 +34,12 @@ const weekly = {
 const entries = [
   { key: 'comp', label: '赛事报名', target: 'comp' },
   { key: 'team', label: '系队风采', target: 'team' },
-  { key: 'camp', label: '运动体验营', target: 'camp' },
-  { key: 'buddy', label: '约球搭子', target: 'buddy' },
-  { key: 'checkin', label: '打卡活动', target: 'checkin' },
-  { key: 'cert', label: '游泳证书', target: 'cert' },
-  { key: 'class', label: '班团服务', target: 'class' },
-  { key: 'equip', label: '器材借用', target: 'equip' },
+  { key: 'camp', label: '运动体验营', target: 'mass' },
+  { key: 'buddy', label: '约球搭子', target: 'mass' },
+  { key: 'checkin', label: '打卡活动', target: 'mass' },
+  { key: 'cert', label: '游泳证书', target: 'me' },
+  { key: 'class', label: '班团报销', target: 'me' },
+  { key: 'equip', label: '器材借用', target: 'me' },
 ];
 
 /** 赛事中心 */
