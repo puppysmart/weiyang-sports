@@ -6,23 +6,19 @@
 
 ## 立即预览
 
-**方式一：公网通道（推荐，手机任何网络都能打开）**
-当前由 Windows 计划任务 **WYPreview** 常驻运行（脚本 `C:\temp\wy_preview\wy_tunnel.py`）：
-自动维持本地服务器 + 隧道，**断线自动重连**，每次重连自动更新 `预览二维码.png` 与 `预览地址.txt`。
-当前公网地址看 `预览地址.txt`。管理：桌面上的服务窗口关闭即停；
-重新启动运行 `schtasks /run /tn WYPreview`（或双击 `C:\temp\wy_preview\run.bat`）；
-彻底移除：`schtasks /delete /tn WYPreview /f`。
-备用：双击本目录 `开启公网预览.bat` 手动开一条（窗口关即失效）。
+**在线预览（已部署 GitHub Pages，固定地址）**
+<https://puppysmart.github.io/weiyang-sports/> —— 手机任何网络直接打开或扫 `预览二维码.png`。
+仓库：<https://github.com/puppysmart/weiyang-sports>（公开仓库，内容更新后自动重新发布）。
+注：github.io 在国内个别网络下偶有波动，若打不开优先换个网络（校园网/热点）再试。
 
-**方式二：本机浏览器**
-双击 `启动预览.bat`（或在本目录运行 `python -m http.server 8123`），
-浏览器打开 <http://localhost:8123>。建议用浏览器开发者工具切换到手机视图（F12 → 设备模拟）。
+**本地开发预览**
+双击 `启动预览.bat`（或本目录运行 `python -m http.server 8123`），
+浏览器打开 <http://localhost:8123>；F12 切换手机视图调试。
 
-**方式三：同一 WiFi 局域网扫码**
-手机与电脑连同一 WiFi，扫 `预览二维码-同一WiFi.png`（指向 http://192.168.3.18:8123）。
-前提：① Windows 防火墙放行 8123 端口（已配置规则"未央体育预览8123"）；
-② 手机连的是电脑同一个路由器的 WiFi（用蜂窝流量打不开，内网地址外网不可达）；
-③ 电脑 IP 变了需重新生成（`ipconfig` 查看，`python -c "import qrcode;qrcode.make('http://<新IP>:8123').save('预览二维码-同一WiFi.png')"`）。
+**内容更新方法**
+改完 `js/data.js` 等文件后：可直接在 GitHub 仓库网页编辑；或用 git 推送
+（当前网络对 github.com:443 直连不稳定时，可用 GitHub Contents API 更新）；
+更新后约 1 分钟自动生效。
 
 ## 目录结构
 
