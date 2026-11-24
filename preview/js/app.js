@@ -1,6 +1,6 @@
-/* 未央体育 · 调整版视图层 V0.4-preview
+/* 未央体育 · 调整版视图层 V0.5-preview
    四 Tab（首页 / 全部功能 / 体育资讯 / 我的）+ 子页面路由（history 返回）。
-   V0.4：精简各模块说明文字；体验营卡片可点开详情（含参与奖励）并改为弹窗表单报名。
+   V0.5：月历支持左右滑动 / 箭头切换月份；数据层接入体育部 2026 年真实工作材料。
    外壳选择器使用 #app（preview/index.html 已配 id）。 */
 'use strict';
 const $ = (s, p) => (p || document).querySelector(s);
@@ -53,10 +53,27 @@ function closeSheet() { $('#sheetLayer').innerHTML = ''; document.body.style.ove
 const D = window.WY;
 let CUR = 'home';
 
-/* ══════════ Tab 1：首页（月历 + 近期活动） ══════════ */
-function calGrid() {
-  const [y, m] = D.term.month.split('-').map(Number);
+/* ══════════ Tab 1：首页（多月历 + 近期活动） ══════════ */
+const calKeys = () => Object.keys(D.calendarMonths).sort();
+let calMonth = null;
+function calShift(delta) {
+  const keys = calKeys(); if (!keys.length) return;
+  let i = keys.indexOf(calMonth); if (i < 0) i = Math.max(0, keys.indexOf(D.term.month));
+  i = Math.min(keys.length - 1, Math.max(0, i + delta));
+  if (keys[i] === calMonth) return;
+  calMonth = keys[i];
+  const card = $('#calCard');
+  if (card) {
+    card.innerHTML = renderCal();
+    card.classList.remove('swap'); void card.offsetWidth; card.classList.add('swap');
+  }
+}
+function renderCal() {
+  const keys = calKeys();
+  const [y, m] = calMonth.split('-').map(Number);
   const mm = String(m).padStart(2, '0');
+  const data = D.calendarMonths[calMonth] || {};
+  const idx = keys.indexOf(calMonth);
   const first = new Date(y, m - 1, 1), days = new Date(y, m, 0).getDate();
   const pad = first.getDay(); // 周日起
   const now = new Date();
@@ -65,13 +82,20 @@ function calGrid() {
   let cells = '<span class="cal-wd">日</span><span class="cal-wd">一</span><span class="cal-wd">二</span><span class="cal-wd">三</span><span class="cal-wd">四</span><span class="cal-wd">五</span><span class="cal-wd">六</span>';
   for (let i = 0; i < pad; i++) cells += '<span class="cal-day"></span>';
   for (let d = 1; d <= days; d++) {
-    const dd = String(d).padStart(2, '0'), ev = D.calendarDates[mm + '-' + dd];
+    const dd = String(d).padStart(2, '0'), ev = data[mm + '-' + dd];
     const cls = ['cal-day', ev ? 'has' : '', dd === todayKey ? 'today' : ''].join(' ');
     cells += ev
       ? `<button class="${cls}" data-nav="${ev.target}" title="${esc(ev.title)}"><i>${d}</i><b></b></button>`
       : `<span class="${cls}"><i>${d}</i></span>`;
   }
-  return cells;
+  return `
+  <div class="cal-head">
+    <button class="cal-nav" data-cal="-1" aria-label="上一月" ${idx <= 0 ? 'disabled' : ''}>‹</button>
+    <b>${y} 年 ${m} 月</b>
+    <button class="cal-nav" data-cal="1" aria-label="下一月" ${idx >= keys.length - 1 ? 'disabled' : ''}>›</button>
+  </div>
+  <div class="cal-grid">${cells}</div>
+  <p class="sub" style="margin-top:8px">本月 ${Object.keys(data).length} 个标记日 · 左右滑动或点箭头切换月份 · 点击日期跳转版块</p>`;
 }
 function pageHome() {
   return `
@@ -79,10 +103,8 @@ function pageHome() {
     <h1>未央体育</h1>
     <p class="slogan">清华之光，体育未央</p>
   </section>
-  <div class="sec-title"><h2>体育周历 · ${D.term.month.replace('-', ' 年 ')} 月</h2><button data-nav="news">体育资讯</button></div>
-  <div class="card cal-card"><div class="cal-grid">${calGrid()}</div>
-    <p class="sub" style="margin-top:8px">标记日期有体育活动，点击可直接跳转对应版块</p>
-  </div>
+  <div class="sec-title"><h2>体育周历</h2><button data-nav="news">体育资讯</button></div>
+  <div class="card cal-card" id="calCard">${renderCal()}</div>
   <div class="sec-title"><h2>近期活动</h2><button data-nav="all">全部功能</button></div>
   ${D.weeklyList.map(w => `
     <div class="card card-row" data-nav="${w.target}" style="cursor:pointer">
@@ -250,6 +272,7 @@ function compSheet(c) {
   <div class="kv"><b>赛制安排</b><span>${c.format.join('；')}</span></div>
   <div class="kv"><b>报名方式</b><span>${c.joinTypes.join(' / ')}</span></div>
   ${c.deadline ? `<div class="kv"><b>报名截止</b><span>${c.deadline}</span></div>` : ''}
+  ${c.result ? `<div class="kv"><b>赛果</b><span>${esc(c.result)}</span></div>` : ''}
   <div class="kv"><b>推荐水平</b><span>${c.recommend} 分及以上（${lt.rows[c.recommend-1].desc.split('：')[0]}）的同学报名</span></div>
   <div class="sec-title"><h2>过往赛事成绩</h2></div>
   <ul class="weekly">${c.pastResults.map(r => `<li><span class="dot gold"></span>${esc(r)}</li>`).join('')}</ul>
@@ -261,7 +284,13 @@ function compSheet(c) {
   <p class="sub" style="font-size:11px;margin-top:6px">高亮行为本项赛事的推荐报名水平</p>
   ${joined.includes(c.id)
     ? `<button class="btn block" disabled>${icon('check',16)} 已报名（演示）</button>`
-    : `<button class="btn block" style="margin-top:12px" onclick="joinForm('${c.id}','赛事报名')">${icon('plus',16)} 立即报名</button>`}`;
+    : c.status === '已结束'
+      ? `<button class="btn block" disabled style="margin-top:12px">本届已收官</button>`
+      : c.status === '预计'
+        ? `<button class="btn block" disabled style="margin-top:12px">报名尚未开放</button>`
+        : c.deadline && c.deadline.includes('已截止')
+          ? `<button class="btn block" disabled style="margin-top:12px">报名已截止 · 备赛中</button>`
+          : `<button class="btn block" style="margin-top:12px" onclick="joinForm('${c.id}','赛事报名')">${icon('plus',16)} 立即报名</button>`}`;
 }
 function joinForm(id, kind) {
   openSheet(`
@@ -315,7 +344,11 @@ function pageCamp() {
       <div class="progress"><i style="width:${Math.round(c.taken / c.cap * 100)}%"></i></div>
       <div class="progress-note"><span>已报 ${c.taken} / ${c.cap} 人</span><span>${c.taken >= c.cap ? '候补队列开放中' : '先到先得'}</span></div>
       <p class="sub" style="margin:8px 0 10px">${esc(c.sci)}</p>
-      <button class="btn ${c.status === '报名中' ? '' : 'ghost'} sm" onclick="event.stopPropagation();campJoinForm('${c.id}')">${c.status === '报名中' ? '立即报名' : '候补登记'}</button>
+      ${c.status === '报名中'
+        ? `<button class="btn sm" onclick="event.stopPropagation();campJoinForm('${c.id}')">立即报名</button>`
+        : c.status === '已满 · 候补中'
+          ? `<button class="btn ghost sm" onclick="event.stopPropagation();campJoinForm('${c.id}')">候补登记</button>`
+          : `<button class="btn ghost sm" disabled>尚未开放</button>`}
     </div>`).join('');
 }
 function campSheet(c) {
@@ -331,7 +364,11 @@ function campSheet(c) {
   <div class="kv"><b>参与奖励</b><span>${esc(c.reward)}</span></div>
   ${joined.includes(c.id)
     ? `<button class="btn block" disabled style="margin-top:12px">${icon('check',16)} 已报名（演示）</button>`
-    : `<button class="btn block" style="margin-top:12px" onclick="campJoinForm('${c.id}')">${icon('plus',16)} ${c.status === '报名中' ? '立即报名' : '候补登记'}</button>`}`;
+    : c.status === '报名中'
+      ? `<button class="btn block" style="margin-top:12px" onclick="campJoinForm('${c.id}')">${icon('plus',16)} 立即报名</button>`
+      : c.status === '已满 · 候补中'
+        ? `<button class="btn ghost block" style="margin-top:12px" onclick="campJoinForm('${c.id}')">${icon('plus',16)} 候补登记</button>`
+        : `<button class="btn ghost block" disabled style="margin-top:12px">报名尚未开放</button>`}`;
 }
 function campJoinForm(id) {
   const c = D.camps.find(x => x.id === id);
@@ -369,7 +406,7 @@ function pageBuddy() {
 function buddyForm() {
   openSheet(`
   <h2>发布约球</h2>
-  <div class="field"><label>项目</label><select id="b-sport" onchange="renderLvPick()">${['羽毛球','乒乓球','排球','篮球','跑步'].map(x => `<option data-lk="${x==='羽毛球'?'bad':x==='乒乓球'?'tt':x==='排球'?'volley':x==='篮球'?'fb':'run'}">${x}</option>`).join('')}</select></div>
+  <div class="field"><label>项目</label><select id="b-sport" onchange="renderLvPick()">${['羽毛球','乒乓球','排球','篮球','跑步'].map(x => `<option data-lk="${x==='羽毛球'?'bad':x==='乒乓球'?'tt':x==='排球'?'volley':x==='篮球'?'bk':'run'}">${x}</option>`).join('')}</select></div>
   <div class="field"><label>时间</label><input id="b-time" placeholder="如：周三 20:00"></div>
   <div class="field"><label>场地</label><input id="b-place" placeholder="如：综体 / 气膜馆 / 紫操"></div>
   <div class="field"><label>还需要几人</label><input id="b-need" type="number" value="2" min="1" max="10"></div>
@@ -411,7 +448,7 @@ function pageCheckin() {
       <div class="card">
         <div class="card-row"><h3>${a.name}</h3>${pill(a.status)}</div>
         <p class="sub" style="margin-top:6px">${icon('calendar',13)} ${a.window} · 模块：${a.modules.join(' / ')}</p>
-        <p class="sub" style="margin-top:4px">${esc(a.rule)} · 已报 ${a.joined} 人</p>
+        <p class="sub" style="margin-top:4px">${esc(a.rule)}${a.joined ? ' · 已报 ' + a.joined + ' 人' : ''}</p>
         <div class="steps" style="margin:10px 0 4px">${isIn ? `<button class="btn sm" onclick="ckRecForm('${a.id}')">${icon('plus',14)} 发布打卡记录</button><span class="step done">已报名</span>` : `<button class="btn sm" onclick="ckJoin('${a.id}')">报名该活动</button>`}</div>
       </div>`; }).join('');
   } else if (seg === 'mine') {
@@ -422,21 +459,19 @@ function pageCheckin() {
         <span class="pill ${r.perm === 2 ? 'pill-open' : r.perm === 1 ? 'pill-doing' : 'pill-done'}">${['仅自己','班内可见','全员可见'][r.perm]}</span>
       </div>`).join('') : '<div class="card"><p class="sub" style="text-align:center;padding:8px 0">还没有打卡记录：先在「活动报名」页报名，再发布第一条记录</p></div>';
   } else {
+    const S = D.checkinStats;
     const myDays = recs.length;
-    const board = [...D.checkinBoard, { name: '我', days: myDays, me: true }].sort((a, b) => b.days - a.days);
     body = `
     <div class="card" style="background:linear-gradient(135deg,#fff,#faf3e6)">
-      <div class="card-row"><b>我的累计打卡</b><span class="pill pill-gold">${myDays} 天</span></div>
-      <p class="sub" style="margin-top:4px">当前排名：第 ${board.findIndex(b => b.me) + 1} 名（演示榜）</p>
+      <div class="card-row"><b>打卡之星（新生打卡）</b><span class="pill pill-gold">${esc(S.top.name)} · ${S.top.days} 次</span></div>
+      <p class="sub" style="margin-top:4px">${esc(S.note)}；共 ${S.total.ppl} 人 · 累计 ${S.total.hits} 次 · 人均 ${(S.total.hits / S.total.ppl).toFixed(1)} 次；我的累计 ${myDays} 次</p>
     </div>
-    ${board.map((b, i) => `
-      <div class="card card-row rank-row ${b.me ? 'me' : ''}">
-        <div style="display:flex;gap:12px;align-items:center">
-          <span class="rank-no ${i < 3 ? 'top' : ''}">${i + 1}</span>
-          <b style="font-size:14px">${esc(b.name)}</b>
-        </div>
-        <span class="sub"><b style="color:var(--primary);font-size:15px">${b.days}</b> 天</span>
-      </div>`).join('')}`;
+    ${S.dist.map(d => `
+      <div class="card card-row">
+        <b style="font-size:14px">${esc(d.range)}</b>
+        <span class="sub"><b style="color:var(--primary);font-size:15px">${d.ppl}</b> 人 · ${d.hits} 人次</span>
+      </div>`).join('')}
+    <p class="sub" style="text-align:center;margin-top:6px">数据来源：新生体育打卡活动总结材料（2026.9）</p>`;
   }
   return `
   <div class="seg">${segBtn('acts','活动报名')}${segBtn('mine','我的打卡')}${segBtn('board','排行榜')}</div>
@@ -691,6 +726,8 @@ window.addEventListener('popstate', e => {
 document.addEventListener('click', e => {
   const nav = e.target.closest('[data-nav]'); if (nav) { navTo(nav.dataset.nav); return; }
   const tab = e.target.closest('[data-tab]'); if (tab) { navTo(tab.dataset.tab); return; }
+  const calb = e.target.closest('[data-cal]');
+  if (calb) { calShift(+calb.dataset.cal); return; }
   const nseg = e.target.closest('[data-nseg]');
   if (nseg) { store.set('WY_NEWS_SEG', nseg.dataset.nseg); refresh(); return; }
   const cseg = e.target.closest('[data-cseg]');
@@ -713,6 +750,21 @@ document.addEventListener('click', e => {
 
 /* 启动：支持 #id 深链接 */
 $('#weekChip').textContent = D.term.label;
+calMonth = calKeys().includes(D.term.month) ? D.term.month : calKeys()[0];
+
+/* 月历左右滑动切换（touch 事件委托，与页面重渲染解耦） */
+let calTX = null, calTY = 0;
+document.addEventListener('touchstart', e => {
+  const c = e.target.closest && e.target.closest('#calCard');
+  if (c) { calTX = e.touches[0].clientX; calTY = e.touches[0].clientY; }
+}, { passive: true });
+document.addEventListener('touchend', e => {
+  if (calTX == null) return;
+  const dx = e.changedTouches[0].clientX - calTX, dy = e.changedTouches[0].clientY - calTY;
+  calTX = null;
+  if (Math.abs(dx) > 40 && Math.abs(dx) > 1.5 * Math.abs(dy)) calShift(dx < 0 ? 1 : -1);
+}, { passive: true });
+
 const initId = location.hash.slice(1);
 const startId = (initId in SUB) || (initId in TABS) ? initId : 'home';
 history.replaceState({ id: startId }, '', '#' + startId);
