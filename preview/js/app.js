@@ -1,5 +1,6 @@
-/* 未央体育 · 调整版视图层 V0.3-preview
+/* 未央体育 · 调整版视图层 V0.4-preview
    四 Tab（首页 / 全部功能 / 体育资讯 / 我的）+ 子页面路由（history 返回）。
+   V0.4：精简各模块说明文字；体验营卡片可点开详情（含参与奖励）并改为弹窗表单报名。
    外壳选择器使用 #app（preview/index.html 已配 id）。 */
 'use strict';
 const $ = (s, p) => (p || document).querySelector(s);
@@ -76,7 +77,7 @@ function pageHome() {
   return `
   <section class="hero small">
     <h1>未央体育</h1>
-    <p class="slogan">清华之光，体育未央 · 竞技看得懂，群众找得到</p>
+    <p class="slogan">清华之光，体育未央</p>
   </section>
   <div class="sec-title"><h2>体育周历 · ${D.term.month.replace('-', ' 年 ')} 月</h2><button data-nav="news">体育资讯</button></div>
   <div class="card cal-card"><div class="cal-grid">${calGrid()}</div>
@@ -96,7 +97,6 @@ function pageAll() {
   const icons = { comp:'trophy', team:'shield', camp:'heart', buddy:'users', checkin:'run', cert:'medal', equip:'volley', class:'flag' };
   const groups = [['竞技', '竞技体育'],['群体', '群众体育'],['服务', '事务服务']];
   return `
-  <p class="sub" style="margin:2px 2px 4px">八大功能集中入口，点击进入对应版块</p>
   ${groups.map(([g, label]) => `
     <div class="sec-title"><h2>${label}</h2></div>
     <div class="entry-grid">
@@ -140,7 +140,7 @@ function pageNews() {
   return `
   <div class="seg">${segBtn('weekly','体育周报')}${segBtn('notice','通知公告')}${segBtn('recruit','系队招募')}</div>
   ${body}
-  <p class="sub" style="text-align:center;margin-top:10px">周报每周一更新 · 公告同步公众号发布</p>`;
+  <p class="sub" style="text-align:center;margin-top:10px">周报每周五更新 · 公告同步公众号发布</p>`;
 }
 function weeklySheet(w) {
   return `
@@ -162,6 +162,7 @@ function pageMe() {
   const joined = store.get('WY_JOINED', []);
   const joinedNames = joined.map(id => {
     const c = D.competitions.find(x => x.id === id); if (c) return { name: c.name, st: c.status };
+    const cp = D.camps.find(x => x.id === id); if (cp) return { name: cp.name + '（体验营' + (cp.status === '报名中' ? '报名' : '候补') + '）', st: cp.status };
     const t = D.teams.find(x => x.id === id); if (t) return { name: t.name + '（招新报名）', st: t.recruit };
     return null; }).filter(Boolean);
   return `
@@ -186,7 +187,7 @@ function pageMe() {
     </div>
     <div id="q-result" style="margin-top:10px"></div>
   </div>
-  <p class="sub" style="text-align:center;margin-top:18px">未央体育调整版预览 V0.3 · 演示数据<br>清华大学未央书院学生会体育部</p>`;
+  <p class="sub" style="text-align:center;margin-top:18px">清华大学未央书院学生会体育部</p>`;
 }
 function profileForm() {
   const p = getProfile();
@@ -282,7 +283,6 @@ function pageTeam() {
   const filter = store.get('WY_TEAM_FILTER', '全部');
   const list = D.teams.filter(t => filter === '全部' || (filter === '零基础可入' ? t.friendly : filter === '招新中' ? t.recruit === '招新中' : !t.friendly));
   return `
-  <p class="sub" style="margin:2px 2px 12px">每支系队一张"诚实名片"：门槛写清楚，敢不敢报一目了然</p>
   <div class="chips">
     ${['全部','零基础可入','需基础','招新中'].map(f =>
       `<button class="chip ${f === filter ? 'on' : ''}" data-tfilter="${f}">${f}</button>`).join('')}
@@ -309,16 +309,47 @@ function teamSheet(t) {
 /* ══════════ 子页：体验营 / 约球 ══════════ */
 function pageCamp() {
   return D.camps.map(c => `
-    <div class="card">
+    <div class="card" data-camp="${c.id}" style="cursor:pointer">
       <div class="card-row"><h3>${esc(c.name)}</h3>${pill(c.status)}</div>
       <p class="sub" style="margin-top:6px">${icon('calendar',13)} ${esc(c.week)} · ${icon('pin',13)} ${esc(c.place)}</p>
       <div class="progress"><i style="width:${Math.round(c.taken / c.cap * 100)}%"></i></div>
       <div class="progress-note"><span>已报 ${c.taken} / ${c.cap} 人</span><span>${c.taken >= c.cap ? '候补队列开放中' : '先到先得'}</span></div>
       <p class="sub" style="margin:8px 0 10px">${esc(c.sci)}</p>
-      ${c.status === '报名中' ? `<button class="btn sm" onclick="toast('体验营报名成功（演示）——候补机制见策划案')">立即报名</button>`
-        : `<button class="btn ghost sm" onclick="toast('已加入候补队列（演示），有退订将按序递补')">候补登记</button>`}
-    </div>`).join('') +
-  `<p class="sub" style="text-align:center;margin-top:8px">定期场地 + 运动科普 + 先到先得 · 新项目持续增加</p>`;
+      <button class="btn ${c.status === '报名中' ? '' : 'ghost'} sm" onclick="event.stopPropagation();campJoinForm('${c.id}')">${c.status === '报名中' ? '立即报名' : '候补登记'}</button>
+    </div>`).join('');
+}
+function campSheet(c) {
+  const joined = store.get('WY_JOINED', []);
+  const left = c.cap - c.taken;
+  return `
+  <h2>${esc(c.name)}</h2>
+  <div style="margin:4px 0 10px">${pill(c.status)}</div>
+  <div class="kv"><b>活动时间</b><span>${esc(c.week)}</span></div>
+  <div class="kv"><b>活动地点</b><span>${esc(c.place)}</span></div>
+  <div class="kv"><b>内容安排</b><span>${esc(c.sci)}</span></div>
+  <div class="kv"><b>名额</b><span>已报 ${c.taken} / ${c.cap} 人 · ${left > 0 ? '剩余 ' + left + ' 个名额' : '已满，可候补登记'}</span></div>
+  <div class="kv"><b>参与奖励</b><span>${esc(c.reward)}</span></div>
+  ${joined.includes(c.id)
+    ? `<button class="btn block" disabled style="margin-top:12px">${icon('check',16)} 已报名（演示）</button>`
+    : `<button class="btn block" style="margin-top:12px" onclick="campJoinForm('${c.id}')">${icon('plus',16)} ${c.status === '报名中' ? '立即报名' : '候补登记'}</button>`}`;
+}
+function campJoinForm(id) {
+  const c = D.camps.find(x => x.id === id);
+  const isWait = c.status !== '报名中';
+  openSheet(`
+  <h2>${isWait ? '候补登记' : '体验营报名'} · ${esc(c.name)}</h2>
+  <div class="field"><label>姓名</label><input id="f-name" value="${esc(getProfile().name)}"></div>
+  <div class="field"><label>学号</label><input id="f-sid" value="${esc(getProfile().sid)}"></div>
+  <div class="field"><label>班级</label><input id="f-cls" value="${esc(getProfile().cls)}"></div>
+  <button class="btn block" onclick="submitCampJoin('${id}')">提交${isWait ? '候补登记' : '报名'}</button>
+  <button class="btn ghost block" style="margin-top:10px" onclick="closeSheet()">取消</button>`);
+}
+function submitCampJoin(id) {
+  if (!$('#f-sid').value.trim()) return toast('请填写学号');
+  const c = D.camps.find(x => x.id === id);
+  const j = store.get('WY_JOINED', []); if (!j.includes(id)) j.push(id);
+  store.set('WY_JOINED', j); closeSheet(); refresh();
+  toast(c.status === '报名中' ? '报名成功！进度可在「我的-活动进度查询」跟踪' : '候补登记成功！有名额释放将按序递补（演示）');
 }
 function pageBuddy() {
   const extra = store.get('WY_BUDDIES', []);
@@ -333,8 +364,7 @@ function pageBuddy() {
         <p class="sub" style="margin-top:3px">${esc(b.note)} · ${esc(b.author)} · ${esc(b.ts)}</p>
       </div>
       <button class="btn sm" onclick="toast('已应答！满员后将以平台消息提醒建群（演示）')">应答</button>
-    </div>`).join('')}
-  <p class="sub" style="text-align:center;margin-top:8px">水平按球类能力对照表 1-5 分标注 · 线下运动注意安全</p>`;
+    </div>`).join('')}`;
 }
 function buddyForm() {
   openSheet(`
@@ -410,8 +440,7 @@ function pageCheckin() {
   }
   return `
   <div class="seg">${segBtn('acts','活动报名')}${segBtn('mine','我的打卡')}${segBtn('board','排行榜')}</div>
-  ${body}
-  ${seg === 'acts' ? '<p class="sub" style="text-align:center;margin-top:8px">报名后方可发布打卡记录；记录可设置可见范围，体育部后台可核查凭证</p>' : ''}`;
+  ${body}`;
 }
 function ckJoin(id) {
   const j = store.get('WY_CK_JOIN', []); if (!j.includes(id)) j.push(id);
@@ -584,7 +613,6 @@ function finalForm() {
 /* ══════════ 子页：管理后台 ══════════ */
 function pageAdmin() {
   return `
-  <p class="sub" style="margin:2px 2px 10px">演示视图：实际仅体育部干事及以上可见（角色权限见策划案 3.7）</p>
   <div class="sec-title"><h2>待办工单</h2></div>
   ${D.admin.todos.map(t => `
     <div class="card card-row">
@@ -677,6 +705,8 @@ document.addEventListener('click', e => {
   if (wk) { openSheet(weeklySheet(D.weeklyReports[+wk.dataset.weekly])); return; }
   const cc = e.target.closest('[data-comp]');
   if (cc) { const c = D.competitions.find(x => x.id === cc.dataset.comp); if (c) openSheet(compSheet(c)); return; }
+  const ca = e.target.closest('[data-camp]');
+  if (ca) { const c = D.camps.find(x => x.id === ca.dataset.camp); if (c) openSheet(campSheet(c)); return; }
   const tc = e.target.closest('[data-team]');
   if (tc) { const t = D.teams.find(x => x.id === tc.dataset.team); if (t) openSheet(teamSheet(t)); return; }
 });
